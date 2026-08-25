@@ -1,369 +1,580 @@
+"""
+የኢትዮጵያ ቋንቋዎች ትርጉም መድረክ | Tajaajila Hiika Afaanii
+Bidirectional Amharic <-> Afaan Oromo Neural Machine Translation Platform
+
+Stack (unchanged): facebook/nllb-200-distilled-600M base model,
+PEFT/LoRA adapters (fetle/amh-orm-nmt, fetle/orm-amh-nmt),
+PyTorch + Hugging Face Transformers, auto CUDA/CPU device selection.
+
+Run with:  streamlit run app.py
+"""
+
+import json
+import html as html_lib
+
 import streamlit as st
+import streamlit.components.v1 as components
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from peft import PeftModel
 
-# ============================================================
-# PAGE CONFIG
-# ============================================================
-st.set_page_config(
-    page_title="🇪🇹 Amharic-Oromo Translator",
-    page_icon="🇪🇹",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+# ============================================================================
+# 1. CONFIGURATION — technical stack kept fully intact
+# ============================================================================
 
-# ============================================================
-# ETHIOPIAN FLAG COLORS
-# ============================================================
-GREEN = "#078930"
-YELLOW = "#FCDD09"
-RED = "#DA121A"
-BLUE = "#0F47AF"
-DARK = "#1a1a2e"
-LIGHT = "#f8f9fa"
+BASE_MODEL = "facebook/nllb-200-distilled-600M"
+LORA_AMH_TO_ORM = "fetle/amh-orm-nmt"   # Amharic -> Afaan Oromo adapter
+LORA_ORM_TO_AMH = "fetle/orm-amh-nmt"   # Afaan Oromo -> Amharic adapter
 
-# ============================================================
-# CUSTOM CSS — PROFESSIONAL & MODERN
-# ============================================================
-st.markdown(f"""
-<style>
-    /* ── Global ── */
-    .main {{
-        background: linear-gradient(145deg, #ffffff 0%, #f2f4f8 100%);
-    }}
-    .block-container {{
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-        max-width: 820px;
-    }}
-
-    /* ── Title ── */
-    .title-container {{
-        text-align: center;
-        padding: 0.5rem 0 0.2rem 0;
-    }}
-    .flag-icon {{
-        font-size: 3.2rem;
-        display: block;
-        margin-bottom: -0.2rem;
-    }}
-    .main-title {{
-        font-size: 2.8rem;
-        font-weight: 800;
-        letter-spacing: -0.5px;
-        background: linear-gradient(135deg, {GREEN}, {YELLOW}, {RED});
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin: 0;
-        padding: 0;
-        line-height: 1.2;
-    }}
-    .sub-title {{
-        font-size: 1.05rem;
-        font-weight: 400;
-        color: #2c3e50;
-        margin-top: -0.2rem;
-        letter-spacing: 0.3px;
-        border-bottom: 2px solid {YELLOW};
-        display: inline-block;
-        padding-bottom: 0.3rem;
-    }}
-    .sub-title-2 {{
-        font-size: 0.95rem;
-        color: #34495e;
-        margin-top: 0.2rem;
-        font-weight: 300;
-    }}
-
-    /* ── Cards ── */
-    .card {{
-        background: white;
-        padding: 1.8rem 2rem;
-        border-radius: 24px;
-        box-shadow: 0 12px 40px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03);
-        border: 1px solid rgba(255,255,255,0.6);
-        backdrop-filter: blur(2px);
-        margin-bottom: 1.2rem;
-        transition: box-shadow 0.25s ease;
-    }}
-    .card:hover {{
-        box-shadow: 0 20px 50px rgba(0,0,0,0.08);
-    }}
-
-    /* ── Buttons ── */
-    .stButton > button {{
-        background: linear-gradient(135deg, {GREEN}, {BLUE}) !important;
-        color: white !important;
-        font-weight: 600 !important;
-        border: none !important;
-        border-radius: 40px !important;
-        padding: 0.6rem 2.2rem !important;
-        font-size: 1.05rem !important;
-        letter-spacing: 0.4px;
-        box-shadow: 0 6px 18px rgba(7, 137, 48, 0.25);
-        transition: all 0.25s ease !important;
-        width: 100%;
-    }}
-    .stButton > button:hover {{
-        transform: translateY(-2px) scale(1.01);
-        box-shadow: 0 10px 28px rgba(7, 137, 48, 0.35);
-        background: linear-gradient(135deg, #0a9e3a, {BLUE}) !important;
-    }}
-
-    /* ── Swap button ── */
-    .swap-btn > button {{
-        background: {DARK} !important;
-        color: white !important;
-        font-weight: 500 !important;
-        border-radius: 40px !important;
-        padding: 0.3rem 1.2rem !important;
-        font-size: 0.85rem !important;
-        box-shadow: none !important;
-        border: 1px solid #444 !important;
-        background: #2c3e50 !important;
-    }}
-    .swap-btn > button:hover {{
-        background: #1a2a3a !important;
-        transform: scale(1.02);
-    }}
-
-    /* ── Text input ── */
-    .stTextArea textarea {{
-        border-radius: 18px !important;
-        border: 1.5px solid #e0e4e8 !important;
-        padding: 0.8rem 1.2rem !important;
-        font-size: 1rem !important;
-        background: #fafbfc !important;
-        transition: border 0.2s ease;
-    }}
-    .stTextArea textarea:focus {{
-        border-color: {GREEN} !important;
-        box-shadow: 0 0 0 3px rgba(7, 137, 48, 0.12);
-    }}
-
-    /* ── Radio buttons ── */
-    .stRadio > div {{
-        gap: 0.8rem;
-    }}
-    .stRadio label {{
-        font-weight: 500;
-        color: #1e293b;
-        background: #f1f4f8;
-        padding: 0.4rem 1.2rem;
-        border-radius: 30px;
-        border: 1px solid transparent;
-        transition: all 0.15s ease;
-    }}
-    .stRadio label:hover {{
-        background: #e2e8f0;
-    }}
-    .stRadio [data-baseweb="radio"]:checked + label {{
-        background: {GREEN};
-        color: white;
-        border-color: {GREEN};
-    }}
-
-    /* ── Success box ── */
-    .stSuccess {{
-        background: #eafaf1 !important;
-        border-radius: 18px !important;
-        padding: 1.2rem 1.6rem !important;
-        border-left: 5px solid {GREEN} !important;
-        box-shadow: 0 2px 8px rgba(7, 137, 48, 0.06);
-    }}
-
-    /* ── Example buttons ── */
-    .ex-btn > button {{
-        background: white !important;
-        color: #1e293b !important;
-        border: 1px solid #dce0e5 !important;
-        border-radius: 30px !important;
-        padding: 0.25rem 1rem !important;
-        font-size: 0.85rem !important;
-        font-weight: 400 !important;
-        box-shadow: none !important;
-        transition: all 0.15s ease !important;
-    }}
-    .ex-btn > button:hover {{
-        background: {GREEN} !important;
-        color: white !important;
-        border-color: {GREEN} !important;
-        transform: scale(1.02);
-    }}
-
-    /* ── Footer ── */
-    .footer {{
-        text-align: center;
-        padding: 1.5rem 1rem;
-        margin-top: 2.5rem;
-        border-radius: 30px;
-        background: linear-gradient(135deg, {GREEN}, {YELLOW}, {RED});
-        color: white;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-    }}
-    .footer small {{
-        font-weight: 300;
-        opacity: 0.9;
-    }}
-
-    /* ── Divider ── */
-    hr {{
-        margin: 1.8rem 0;
-        border: 0;
-        height: 2px;
-        background: linear-gradient(to right, {GREEN}, {YELLOW}, {RED});
-        opacity: 0.3;
-        border-radius: 10px;
-    }}
-
-    /* ── Responsive tweaks ── */
-    @media (max-width: 600px) {{
-        .main-title {{
-            font-size: 2rem;
-        }}
-        .card {{
-            padding: 1.2rem;
-        }}
-    }}
-</style>
-""", unsafe_allow_html=True)
-
-# ============================================================
-# LOAD MODELS
-# ============================================================
 AMH = "amh_Ethi"
 ORM = "orm_Latn"
 
-@st.cache_resource
-def load_models():
-    tokenizer = AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-600M")
-    base = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-600M")
-    model_amh_orm = PeftModel.from_pretrained(base, "fetle/amh-orm-nmt")
-    base2 = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-600M")
-    model_orm_amh = PeftModel.from_pretrained(base2, "fetle/orm-amh-nmt")
-    return tokenizer, model_amh_orm, model_orm_amh
+DIR_AM_TO_OR = "Amharic ➔ Afaan Oromo"
+DIR_OR_TO_AM = "Afaan Oromo ➔ Amharic"
 
-tokenizer, model_amh_orm, model_orm_amh = load_models()
+DIRECTIONS = {
+    DIR_AM_TO_OR: {"src": AMH, "tgt": ORM, "adapter": LORA_AMH_TO_ORM,
+                   "src_label": "አማርኛ / Amharic", "tgt_label": "አፋን ኦሮሞ / Afaan Oromo"},
+    DIR_OR_TO_AM: {"src": ORM, "tgt": AMH, "adapter": LORA_ORM_TO_AMH,
+                   "src_label": "አፋን ኦሮሞ / Afaan Oromo", "tgt_label": "አማርኛ / Amharic"},
+}
 
-# ============================================================
-# TRANSLATION FUNCTION
-# ============================================================
-def translate_text(text, direction):
-    if not text or text.strip() == "":
-        return "⚠️ Please enter some text to translate."
-    
-    if direction == "Amharic → Oromo":
-        model = model_amh_orm
-        src_lang, tgt_lang = AMH, ORM
-    else:
-        model = model_orm_amh
-        src_lang, tgt_lang = ORM, AMH
-    
+EXAMPLES = {
+    DIR_AM_TO_OR: [
+        "ሰላም! እንደምን አለህ?",
+        "ኢትዮጵያ በብዙ ብሔር ብሔረሰቦች የበለጸገች ሀገር ናት።",
+        "ትምህርት የስኬት መሠረት ነው።",
+    ],
+    DIR_OR_TO_AM: [
+        "Akkam jirta? Nagaa?",
+        "Itoophiyaan biyya sabaa fi sablammoota baayʼeen badhaadhe dha.",
+        "Barnoonni hundee milkaaʼinaa ti.",
+    ],
+}
+
+st.set_page_config(
+    page_title="የኢትዮጵያ ቋንቋዎች ትርጉም መድረክ | Tajaajila Hiika Afaanii",
+    page_icon="🇪🇹",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ============================================================================
+# 2. MODEL LOADING (cached) — PyTorch + Transformers + PEFT
+# ============================================================================
+
+
+@st.cache_resource(show_spinner=False)
+def load_pipeline(adapter_id: str):
+    """Load base NLLB model + tokenizer + LoRA adapter, cached per adapter."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
+    base_model = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL)
+    model = PeftModel.from_pretrained(base_model, adapter_id)
+    model.to(device)
+    model.eval()
+    return tokenizer, model, device
+
+
+def _lang_token_id(tokenizer, lang_code: str) -> int:
+    """Resolve an NLLB language-code token id across tokenizer versions."""
+    lang_map = getattr(tokenizer, "lang_code_to_id", None)
+    if lang_map and lang_code in lang_map:
+        return lang_map[lang_code]
+    return tokenizer.convert_tokens_to_ids(lang_code)
+
+
+def run_translation(text: str, src_lang: str, tgt_lang: str, adapter_id: str,
+                     max_length: int = 256, num_beams: int = 4) -> str:
+    tokenizer, model, device = load_pipeline(adapter_id)
     tokenizer.src_lang = src_lang
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=64)
-    
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=max_length).to(device)
+    forced_bos_token_id = _lang_token_id(tokenizer, tgt_lang)
     with torch.no_grad():
-        outputs = model.generate(
+        generated_tokens = model.generate(
             **inputs,
-            forced_bos_token_id=tokenizer.convert_tokens_to_ids(tgt_lang),
-            max_length=64,
-            num_beams=4,
-            early_stopping=True
+            forced_bos_token_id=forced_bos_token_id,
+            max_length=max_length,
+            num_beams=num_beams,
         )
-    
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)[0].strip()
 
-# ============================================================
-# UI — PROFESSIONAL LAYOUT
-# ============================================================
-st.markdown("""
-<div class="title-container">
-    <span class="flag-icon">🇪🇹</span>
-    <div class="main-title">Amharic ↔ Oromo Translator</div>
-    <div class="sub-title">ለኢትዮጵያውያን የተዘጋጀ የትርጉም አገልግሎት</div>
-    <div class="sub-title-2">Tajaajila hiikuu kan Etiyophiyaaf qophaaʼe</div>
-</div>
-""", unsafe_allow_html=True)
 
-# ── Card: Direction + Swap ──
-with st.container():
-    col_dir, col_swap = st.columns([5, 1])
-    with col_dir:
-        direction = st.radio(
-            "🔄 Select Direction",
-            ["Amharic → Oromo", "Oromo → Amharic"],
-            horizontal=True,
-            key="direction"
-        )
-    with col_swap:
-        st.write("")
-        st.write("")
-        if st.button("⇄ Swap", key="swap_btn", help="Swap translation direction"):
-            if direction == "Amharic → Oromo":
-                direction = "Oromo → Amharic"
-            else:
-                direction = "Amharic → Oromo"
+# ============================================================================
+# 3. SESSION STATE
+# ============================================================================
 
-# ── Card: Input ──
-with st.container():
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    text = st.text_area(
-        "📝 Enter Your Text",
-        height=120,
-        placeholder="Type your sentence here... ዓረፍተ ነገር ይጻፉ... Himoota galchi...",
-        key="input_text"
+def init_state():
+    defaults = {
+        "direction": DIR_AM_TO_OR,
+        "input_text": "",
+        "output_text": "",
+        "last_error": "",
+        "is_translating": False,
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+init_state()
+
+
+def swap_direction():
+    st.session_state.direction = (
+        DIR_OR_TO_AM if st.session_state.direction == DIR_AM_TO_OR else DIR_AM_TO_OR
     )
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.session_state.input_text, st.session_state.output_text = (
+        st.session_state.output_text,
+        st.session_state.input_text,
+    )
+    st.session_state.last_error = ""
 
-# ── Translate Button ──
-col_btn1, col_btn2, col_btn3 = st.columns([1, 1.5, 1])
-with col_btn2:
-    translate_clicked = st.button("🔮 Translate", type="primary", use_container_width=True)
 
-# ── Result ──
-if translate_clicked:
-    if text:
-        with st.spinner("Translating... እየተረጎመ... Hiikuu..."):
-            result = translate_text(text, direction)
-        st.success(f"✅ **Translation / ትርጉም / Hiikuu:**\n\n{result}")
+def set_example(direction: str, text: str):
+    st.session_state.direction = direction
+    st.session_state.input_text = text
+    st.session_state.output_text = ""
+    st.session_state.last_error = ""
+
+
+def clear_input():
+    st.session_state.input_text = ""
+    st.session_state.output_text = ""
+    st.session_state.last_error = ""
+
+
+def do_translate():
+    text = st.session_state.input_text.strip()
+    if not text:
+        st.session_state.output_text = ""
+        st.session_state.last_error = ""
+        return
+    config = DIRECTIONS[st.session_state.direction]
+    st.session_state.last_error = ""
+    try:
+        st.session_state.output_text = run_translation(
+            text, config["src"], config["tgt"], config["adapter"]
+        )
+    except Exception as exc:  # surfaced in the UI, not swallowed
+        st.session_state.output_text = ""
+        st.session_state.last_error = f"{type(exc).__name__}: {exc}"
+
+
+# ============================================================================
+# 4. CUSTOM CSS — Ethiopian premium theme, glassmorphism, gradient accents
+# ============================================================================
+
+CUSTOM_CSS = """
+<style>
+:root {
+    --emerald: #078930;
+    --gold: #FCDD09;
+    --crimson: #DA121A;
+    --navy: #1a1a2e;
+    --navy-light: #23233f;
+    --glass-border: rgba(252, 221, 9, 0.25);
+}
+
+.stApp {
+    background: radial-gradient(circle at 15% 10%, #20203a 0%, var(--navy) 55%, #12121f 100%);
+    color: #f4f4f8;
+}
+
+/* Flag-gradient top bar */
+.flag-bar {
+    height: 6px;
+    width: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--emerald) 0%, var(--gold) 50%, var(--crimson) 100%);
+    margin-bottom: 1.1rem;
+    box-shadow: 0 0 18px rgba(252, 221, 9, 0.35);
+}
+
+.hero-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 1.6rem 2rem;
+    backdrop-filter: blur(10px);
+    margin-bottom: 1.4rem;
+}
+
+.hero-title {
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(90deg, var(--gold), #fff6c9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hero-subtitle {
+    font-size: 0.95rem;
+    color: #c9c9d8;
+    margin-top: 0.35rem;
+}
+
+.badge-row { margin-top: 0.9rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.badge {
+    display: inline-block;
+    padding: 0.28rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid transparent;
+}
+.badge-emerald { background: rgba(7,137,48,0.18); color: #6be396; border-color: rgba(7,137,48,0.5); }
+.badge-gold { background: rgba(252,221,9,0.14); color: var(--gold); border-color: rgba(252,221,9,0.45); }
+.badge-crimson { background: rgba(218,18,26,0.16); color: #ff7b7f; border-color: rgba(218,18,26,0.45); }
+
+/* Glassmorphism translation cards */
+.glass-card {
+    background: rgba(255,255,255,0.045);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.2rem 1.3rem 0.9rem 1.3rem;
+    backdrop-filter: blur(8px);
+    position: relative;
+}
+
+.card-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gold);
+    margin-bottom: 0.55rem;
+}
+
+.metrics-row {
+    display: flex;
+    gap: 1.1rem;
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+    color: #9d9dc0;
+}
+.metrics-row span b { color: #e6e6f0; }
+
+.output-box {
+    min-height: 160px;
+    border-radius: 12px;
+    border: 1px dashed rgba(252,221,9,0.3);
+    background: rgba(0,0,0,0.18);
+    padding: 0.9rem 1rem;
+    font-size: 1.02rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.output-placeholder { color: #7a7a95; font-style: italic; }
+
+/* Buttons */
+.stButton>button {
+    border-radius: 10px !important;
+    border: 1px solid var(--glass-border) !important;
+    background: linear-gradient(135deg, rgba(7,137,48,0.85), rgba(7,137,48,0.55)) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    transition: all 0.15s ease-in-out;
+}
+.stButton>button:hover {
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 14px rgba(252,221,9,0.35);
+    transform: translateY(-1px);
+}
+
+.swap-btn button {
+    background: linear-gradient(135deg, rgba(252,221,9,0.85), rgba(218,18,26,0.55)) !important;
+}
+
+.clear-btn button {
+    background: linear-gradient(135deg, rgba(218,18,26,0.75), rgba(26,26,46,0.4)) !important;
+}
+
+.copy-btn {
+    margin-top: 0.7rem;
+    background: linear-gradient(135deg, rgba(7,137,48,0.9), rgba(252,221,9,0.35));
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.45rem 1rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+.copy-btn:hover { box-shadow: 0 0 12px rgba(252,221,9,0.35); }
+
+.example-chip {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    margin: 0.15rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+    font-size: 0.78rem;
+    color: #d8d8e8;
+}
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #14142a 0%, #1a1a2e 100%);
+    border-right: 1px solid var(--glass-border);
+}
+
+.sidebar-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+}
+.sidebar-metric { display: flex; justify-content: space-between; font-size: 0.85rem; margin: 0.3rem 0; }
+.sidebar-metric span:last-child { color: var(--gold); font-weight: 700; }
+
+.footer-note {
+    text-align: center;
+    color: #7a7a95;
+    font-size: 0.75rem;
+    margin-top: 2.2rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+textarea, .stTextArea textarea {
+    background: rgba(0,0,0,0.22) !important;
+    color: #f4f4f8 !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--glass-border) !important;
+}
+
+div[role="radiogroup"] label {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--glass-border);
+    padding: 0.4rem 0.9rem;
+    border-radius: 10px;
+    margin-right: 0.4rem;
+}
+</style>
+"""
+
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+# ============================================================================
+# 5. HEADER
+# ============================================================================
+
+st.markdown('<div class="flag-bar"></div>', unsafe_allow_html=True)
+st.markdown(
+    """
+    <div class="hero-card">
+        <p class="hero-title">የኢትዮጵያ ቋንቋዎች ትርጉም መድረክ</p>
+        <p class="hero-title" style="font-size:1.15rem; opacity:0.85;">Tajaajila Hiika Afaanii</p>
+        <p class="hero-subtitle">
+            A neural machine translation platform bridging Amharic and Afaan Oromo —
+            built on NLLB-200 with adapter-based fine-tuning for low-resource Ethiopian languages.
+        </p>
+        <div class="badge-row">
+            <span class="badge badge-emerald">NLLB-200 Distilled 600M</span>
+            <span class="badge badge-gold">LoRA Fine-Tuned</span>
+            <span class="badge badge-crimson">chrF 27.39</span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ============================================================================
+# 6. DIRECTION CONTROLS
+# ============================================================================
+
+ctrl_left, ctrl_mid, ctrl_right = st.columns([5, 1, 2])
+
+with ctrl_left:
+    st.radio(
+        "Translation direction / Kallattii Hiikkaa",
+        options=[DIR_AM_TO_OR, DIR_OR_TO_AM],
+        key="direction",
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+
+with ctrl_mid:
+    st.markdown('<div class="swap-btn">', unsafe_allow_html=True)
+    st.button("⇄ Swap", on_click=swap_direction, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with ctrl_right:
+    st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
+    st.button("🧹 አጽዳ / Clear", on_click=clear_input, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+current_config = DIRECTIONS[st.session_state.direction]
+
+# Example chips
+st.markdown(
+    f'<span style="font-size:0.8rem; color:#9d9dc0;">Try an example / Fakkeenya:</span>',
+    unsafe_allow_html=True,
+)
+example_cols = st.columns(len(EXAMPLES[st.session_state.direction]))
+for i, example_text in enumerate(EXAMPLES[st.session_state.direction]):
+    with example_cols[i]:
+        st.button(
+            example_text if len(example_text) <= 28 else example_text[:26] + "…",
+            key=f"example_{st.session_state.direction}_{i}",
+            on_click=set_example,
+            args=(st.session_state.direction, example_text),
+            use_container_width=True,
+        )
+
+st.write("")
+
+# ============================================================================
+# 7. TRANSLATION WORKSPACE
+# ============================================================================
+
+src_col, tgt_col = st.columns(2, gap="large")
+
+with src_col:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown(f'<div class="card-label">{current_config["src_label"]}</div>', unsafe_allow_html=True)
+    st.text_area(
+        "source_input",
+        key="input_text",
+        height=180,
+        placeholder="ጽሑፍዎን እዚህ ይጻፉ... / Barreeffama kee asitti barreessi...",
+        label_visibility="collapsed",
+    )
+    char_count = len(st.session_state.input_text)
+    word_count = len(st.session_state.input_text.split()) if st.session_state.input_text.strip() else 0
+    st.markdown(
+        f"""
+        <div class="metrics-row">
+            <span>ፊደላት / Characters: <b>{char_count}</b></span>
+            <span>ቃላት / Words: <b>{word_count}</b></span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.write("")
+    st.button(
+        "🌐 ተርጉም / Hiiki (Translate)",
+        on_click=do_translate,
+        use_container_width=True,
+        type="primary",
+    )
+
+with tgt_col:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown(f'<div class="card-label">{current_config["tgt_label"]}</div>', unsafe_allow_html=True)
+
+    if st.session_state.last_error:
+        st.error(f"Translation failed: {st.session_state.last_error}")
+    elif st.session_state.output_text:
+        safe_output = html_lib.escape(st.session_state.output_text)
+        st.markdown(f'<div class="output-box">{safe_output}</div>', unsafe_allow_html=True)
     else:
-        st.warning("⚠️ Please enter some text to translate.")
+        st.markdown(
+            '<div class="output-box output-placeholder">ትርጉምዎ እዚህ ይታያል... / Hiikni kee asitti ni argama...</div>',
+            unsafe_allow_html=True,
+        )
 
-# ── Examples ──
-st.markdown("---")
-st.markdown("### 📌 Try These Examples")
+    if st.session_state.output_text:
+        copy_payload = json.dumps(st.session_state.output_text)
+        components.html(
+            f"""
+            <button class="copy-btn" onclick="copyText()">📋 Copy to clipboard</button>
+            <script>
+            function copyText() {{
+                const text = {copy_payload};
+                navigator.clipboard.writeText(text).then(() => {{
+                    const btn = document.querySelector('.copy-btn');
+                    const original = btn.innerText;
+                    btn.innerText = '✅ Copied!';
+                    setTimeout(() => {{ btn.innerText = original; }}, 1500);
+                }});
+            }}
+            </script>
+            <style>
+                .copy-btn {{
+                    background: linear-gradient(135deg, rgba(7,137,48,0.9), rgba(252,221,9,0.35));
+                    border: 1px solid rgba(252,221,9,0.25);
+                    color: #fff;
+                    font-weight: 600;
+                    padding: 0.45rem 1rem;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: 0.85rem;
+                    font-family: sans-serif;
+                }}
+                .copy-btn:hover {{ box-shadow: 0 0 12px rgba(252,221,9,0.35); }}
+                body {{ margin: 0; background: transparent; }}
+            </style>
+            """,
+            height=50,
+        )
 
-cols = st.columns(3)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-examples = [
-    ("ሰላም እንዴት ነህ?", "Amharic → Oromo"),
-    ("እናመሰግናለን", "Amharic → Oromo"),
-    ("አዲስ አበባ", "Amharic → Oromo"),
-    ("nagaa dha, akkam?", "Oromo → Amharic"),
-    ("galatoomaa", "Oromo → Amharic"),
-    ("Finfinnee", "Oromo → Amharic"),
-    ("በቃ እንሂድ", "Amharic → Oromo"),
-    ("haa deemnu", "Oromo → Amharic"),
-    ("ሰላም", "Amharic → Oromo"),
-]
+# ============================================================================
+# 8. SIDEBAR — Institutional metadata / project impact
+# ============================================================================
 
-for i, (example_text, example_dir) in enumerate(examples):
-    with cols[i % 3]:
-        st.markdown('<div class="ex-btn">', unsafe_allow_html=True)
-        if st.button(example_text, key=f"ex_{i}"):
-            text = example_text
-            direction = example_dir
-        st.markdown('</div>', unsafe_allow_html=True)
+with st.sidebar:
+    st.markdown("### 🇪🇹 Project Overview")
+    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="sidebar-metric"><span>Base Model</span><span>NLLB-200 (600M)</span></div>
+        <div class="sidebar-metric"><span>Fine-Tuning</span><span>LoRA (PEFT)</span></div>
+        <div class="sidebar-metric"><span>Dataset Size</span><span>5,000 pairs</span></div>
+        <div class="sidebar-metric"><span>Best chrF</span><span>27.39</span></div>
+        <div class="sidebar-metric"><span>Directions</span><span>AMH ⇄ ORM</span></div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# ── Footer ──
-st.markdown("---")
-st.markdown(f"""
-<div class="footer">
-    🇪🇹 <b>ኢትዮጵያ ትበልጭ! · Etiyophiyaa Injifattu! · Ethiopia Triumphs!</b> 🇪🇹<br>
-    <small>Model: NLLB-200 (600M) + LoRA &nbsp;|&nbsp; Training: 5,000 sentences &nbsp;|&nbsp; Best chrF: 27.39</small>
-</div>
-""", unsafe_allow_html=True)
+    with st.expander("📖 Why this matters / Bu'aa Hawaasaaf"):
+        st.markdown(
+            """
+            Amharic and Afaan Oromo are among Ethiopia's most widely spoken
+            languages, yet remain low-resource in NLP research. This platform
+            was developed as part of a research internship to explore
+            adapter-based fine-tuning of multilingual translation models —
+            supporting cross-lingual communication and national language
+            integration at scale, without retraining the full base model.
+            """
+        )
+
+    with st.expander("⚙️ Technical Details"):
+        st.markdown(
+            f"""
+            - **Base model:** `{BASE_MODEL}`
+            - **Amharic → Oromo adapter:** `{LORA_AMH_TO_ORM}`
+            - **Oromo → Amharic adapter:** `{LORA_ORM_TO_AMH}`
+            - **Language codes:** `{AMH}`, `{ORM}`
+            - **Device:** Auto-detected (CUDA if available, else CPU)
+            - **Decoding:** Beam search (beams=4), max length 256
+            """
+        )
+
+    device_label = "🟢 GPU (CUDA)" if torch.cuda.is_available() else "🟡 CPU"
+    st.caption(f"Runtime device: {device_label}")
+
+# ============================================================================
+# 9. FOOTER
+# ============================================================================
+
+st.markdown(
+    """
+    <div class="footer-note">
+        የኢትዮጵያ ቋንቋዎች ትርጉም መድረክ · Tajaajila Hiika Afaanii<br>
+        Built on open multilingual research to support Ethiopia's linguistic diversity.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
