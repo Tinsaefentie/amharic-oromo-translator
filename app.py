@@ -29,14 +29,16 @@ LORA_ORM_TO_AMH = "fetle/orm-amh-nmt"   # Afaan Oromo -> Amharic adapter
 AMH = "amh_Ethi"
 ORM = "orm_Latn"
 
-DIR_AM_TO_OR = "Amharic ➔ Afaan Oromo"
-DIR_OR_TO_AM = "Afaan Oromo ➔ Amharic"
+DIR_AM_TO_OR = "Amharic → Afaan Oromo"
+DIR_OR_TO_AM = "Afaan Oromo → Amharic"
 
 DIRECTIONS = {
     DIR_AM_TO_OR: {"src": AMH, "tgt": ORM, "adapter": LORA_AMH_TO_ORM,
-                   "src_label": "አማርኛ / Amharic", "tgt_label": "አፋን ኦሮሞ / Afaan Oromo"},
+                   "src_label": "Amharic", "src_native": "አማርኛ",
+                   "tgt_label": "Afaan Oromo", "tgt_native": "Afaan Oromoo"},
     DIR_OR_TO_AM: {"src": ORM, "tgt": AMH, "adapter": LORA_ORM_TO_AMH,
-                   "src_label": "አፋን ኦሮሞ / Afaan Oromo", "tgt_label": "አማርኛ / Amharic"},
+                   "src_label": "Afaan Oromo", "src_native": "Afaan Oromoo",
+                   "tgt_label": "Amharic", "tgt_native": "አማርኛ"},
 }
 
 EXAMPLES = {
@@ -54,7 +56,7 @@ EXAMPLES = {
 
 st.set_page_config(
     page_title="የኢትዮጵያ ቋንቋዎች ትርጉም መድረክ | Tajaajila Hiika Afaanii",
-    page_icon="🇪🇹",
+    page_icon="🌐",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -110,7 +112,6 @@ def init_state():
         "input_text": "",
         "output_text": "",
         "last_error": "",
-        "is_translating": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -162,200 +163,349 @@ def do_translate():
 
 
 # ============================================================================
-# 4. CUSTOM CSS — Ethiopian premium theme, glassmorphism, gradient accents
+# 4. DESIGN SYSTEM
+# ----------------------------------------------------------------------------
+# Ink-charcoal surface, a single working accent (deep emerald) for action and
+# state, and an antique-gold hairline reserved for one signature moment
+# (the top rule + the language-pair seam). Crimson is kept out of decoration
+# entirely and used only as the semantic error color. Newsreader (serif)
+# carries the institutional register for the Latin display type; Noto Serif
+# Ethiopic mirrors that weight for Ge'ez. Inter runs the interface; JetBrains
+# Mono is reserved for anything that reads as data — language codes, metrics,
+# model identifiers — to signal "this is a technical system," not a poster.
 # ============================================================================
 
 CUSTOM_CSS = """
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+Ethiopic:wght@400;500;600&family=Noto+Sans+Ethiopic:wght@400;500;600&display=swap');
+
 :root {
-    --emerald: #078930;
-    --gold: #FCDD09;
-    --crimson: #DA121A;
-    --navy: #1a1a2e;
-    --navy-light: #23233f;
-    --glass-border: rgba(252, 221, 9, 0.25);
+    --ink: #0B0D11;
+    --surface: #12151B;
+    --surface-raised: #171A21;
+    --hairline: rgba(255,255,255,0.08);
+    --hairline-strong: rgba(255,255,255,0.16);
+    --text: #E7E9EE;
+    --text-muted: #8B93A3;
+    --text-faint: #575F6E;
+    --emerald: #14804A;
+    --emerald-strong: #1C9A5A;
+    --emerald-wash: rgba(20,128,74,0.12);
+    --gold: #C8A44D;
+    --gold-wash: rgba(200,164,77,0.10);
+    --crimson: #B4453F;
 }
+
+html, body, [class*="css"] { font-family: 'Inter', -apple-system, sans-serif; }
 
 .stApp {
-    background: radial-gradient(circle at 15% 10%, #20203a 0%, var(--navy) 55%, #12121f 100%);
-    color: #f4f4f8;
+    background: var(--ink);
+    color: var(--text);
 }
 
-/* Flag-gradient top bar */
-.flag-bar {
-    height: 6px;
+.block-container { padding-top: 1.6rem; max-width: 1180px; }
+
+.ethiopic { font-family: 'Noto Serif Ethiopic', 'Noto Sans Ethiopic', serif; }
+.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+/* ---------- Header ---------- */
+
+.top-rule {
+    height: 2px;
     width: 100%;
-    border-radius: 6px;
-    background: linear-gradient(90deg, var(--emerald) 0%, var(--gold) 50%, var(--crimson) 100%);
-    margin-bottom: 1.1rem;
-    box-shadow: 0 0 18px rgba(252, 221, 9, 0.35);
-}
-
-.hero-card {
-    background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
-    border: 1px solid var(--glass-border);
-    border-radius: 18px;
-    padding: 1.6rem 2rem;
-    backdrop-filter: blur(10px);
+    background: var(--gold);
+    opacity: 0.55;
     margin-bottom: 1.4rem;
 }
 
-.hero-title {
-    font-size: 1.7rem;
-    font-weight: 700;
-    margin: 0;
-    background: linear-gradient(90deg, var(--gold), #fff6c9);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.hero-subtitle {
-    font-size: 0.95rem;
-    color: #c9c9d8;
-    margin-top: 0.35rem;
-}
-
-.badge-row { margin-top: 0.9rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
-
-.badge {
-    display: inline-block;
-    padding: 0.28rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    border: 1px solid transparent;
-}
-.badge-emerald { background: rgba(7,137,48,0.18); color: #6be396; border-color: rgba(7,137,48,0.5); }
-.badge-gold { background: rgba(252,221,9,0.14); color: var(--gold); border-color: rgba(252,221,9,0.45); }
-.badge-crimson { background: rgba(218,18,26,0.16); color: #ff7b7f; border-color: rgba(218,18,26,0.45); }
-
-/* Glassmorphism translation cards */
-.glass-card {
-    background: rgba(255,255,255,0.045);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 1.2rem 1.3rem 0.9rem 1.3rem;
-    backdrop-filter: blur(8px);
-    position: relative;
-}
-
-.card-label {
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--gold);
-    margin-bottom: 0.55rem;
-}
-
-.metrics-row {
+.masthead-row {
     display: flex;
-    gap: 1.1rem;
-    margin-top: 0.5rem;
-    font-size: 0.78rem;
-    color: #9d9dc0;
-}
-.metrics-row span b { color: #e6e6f0; }
-
-.output-box {
-    min-height: 160px;
-    border-radius: 12px;
-    border: 1px dashed rgba(252,221,9,0.3);
-    background: rgba(0,0,0,0.18);
-    padding: 0.9rem 1rem;
-    font-size: 1.02rem;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-.output-placeholder { color: #7a7a95; font-style: italic; }
-
-/* Buttons */
-.stButton>button {
-    border-radius: 10px !important;
-    border: 1px solid var(--glass-border) !important;
-    background: linear-gradient(135deg, rgba(7,137,48,0.85), rgba(7,137,48,0.55)) !important;
-    color: #fff !important;
-    font-weight: 600 !important;
-    transition: all 0.15s ease-in-out;
-}
-.stButton>button:hover {
-    border-color: var(--gold) !important;
-    box-shadow: 0 0 14px rgba(252,221,9,0.35);
-    transform: translateY(-1px);
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.6rem;
 }
 
-.swap-btn button {
-    background: linear-gradient(135deg, rgba(252,221,9,0.85), rgba(218,18,26,0.55)) !important;
+.eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
 }
 
-.clear-btn button {
-    background: linear-gradient(135deg, rgba(218,18,26,0.75), rgba(26,26,46,0.4)) !important;
+.eyebrow-right {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    text-align: right;
 }
 
-.copy-btn {
-    margin-top: 0.7rem;
-    background: linear-gradient(135deg, rgba(7,137,48,0.9), rgba(252,221,9,0.35));
-    border: 1px solid var(--glass-border);
-    color: #fff;
+.masthead-title {
+    font-family: 'Noto Serif Ethiopic', serif;
+    font-size: 2.15rem;
     font-weight: 600;
-    padding: 0.45rem 1rem;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 0.85rem;
-}
-.copy-btn:hover { box-shadow: 0 0 12px rgba(252,221,9,0.35); }
-
-.example-chip {
-    display: inline-block;
-    padding: 0.3rem 0.7rem;
-    margin: 0.15rem;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--glass-border);
-    font-size: 0.78rem;
-    color: #d8d8e8;
+    color: var(--text);
+    line-height: 1.25;
+    margin: 0.1rem 0 0 0;
 }
 
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #14142a 0%, #1a1a2e 100%);
-    border-right: 1px solid var(--glass-border);
+.masthead-subtitle {
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 1.25rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin: 0.1rem 0 0.7rem 0;
 }
 
-.sidebar-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--glass-border);
-    border-radius: 14px;
-    padding: 1rem 1.1rem;
-    margin-bottom: 1rem;
-}
-.sidebar-metric { display: flex; justify-content: space-between; font-size: 0.85rem; margin: 0.3rem 0; }
-.sidebar-metric span:last-child { color: var(--gold); font-weight: 700; }
-
-.footer-note {
-    text-align: center;
-    color: #7a7a95;
-    font-size: 0.75rem;
-    margin-top: 2.2rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255,255,255,0.06);
+.masthead-desc {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    max-width: 620px;
+    line-height: 1.55;
+    margin-bottom: 1.1rem;
 }
 
-textarea, .stTextArea textarea {
-    background: rgba(0,0,0,0.22) !important;
-    color: #f4f4f8 !important;
-    border-radius: 12px !important;
-    border: 1px solid var(--glass-border) !important;
+.header-divider {
+    border-bottom: 1px solid var(--hairline);
+    margin-bottom: 1.3rem;
+}
+
+/* ---------- Segmented direction control ---------- */
+
+div[role="radiogroup"] {
+    display: inline-flex;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
 }
 
 div[role="radiogroup"] label {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--glass-border);
-    padding: 0.4rem 0.9rem;
-    border-radius: 10px;
-    margin-right: 0.4rem;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 0.45rem 1rem !important;
+    margin: 0 !important;
+    font-size: 0.85rem !important;
+    color: var(--text-muted) !important;
+    transition: all 0.12s ease;
 }
+
+div[role="radiogroup"] label:has(input:checked) {
+    background: var(--emerald-wash) !important;
+    color: var(--text) !important;
+    box-shadow: inset 0 0 0 1px rgba(20,128,74,0.45);
+}
+
+div[role="radiogroup"] label div p { font-size: 0.85rem !important; font-weight: 500; }
+
+/* ---------- Buttons ---------- */
+
+.stButton>button {
+    border-radius: 8px !important;
+    border: 1px solid var(--hairline-strong) !important;
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    font-weight: 500 !important;
+    font-size: 0.85rem !important;
+    padding: 0.5rem 1rem !important;
+    box-shadow: none !important;
+    transition: border-color 0.12s ease, background 0.12s ease;
+}
+.stButton>button:hover {
+    border-color: var(--text-muted) !important;
+    background: var(--surface-raised) !important;
+    color: var(--text) !important;
+}
+.stButton>button:active { transform: none !important; }
+
+.stButton>button[kind="primary"] {
+    background: var(--emerald) !important;
+    border: 1px solid var(--emerald) !important;
+    color: #F3FBF6 !important;
+    font-weight: 600 !important;
+    font-size: 0.92rem !important;
+    padding: 0.62rem 1.2rem !important;
+}
+.stButton>button[kind="primary"]:hover {
+    background: var(--emerald-strong) !important;
+    border-color: var(--emerald-strong) !important;
+}
+
+.example-btn button {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.72rem !important;
+    color: var(--text-muted) !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+}
+
+/* ---------- Pipeline seam (signature element) ---------- */
+
+.seam {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin: 0.9rem 0 1.1rem 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    color: var(--text-faint);
+    letter-spacing: 0.02em;
+}
+.seam .code { color: var(--gold); }
+.seam .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text-faint); }
+.seam::before, .seam::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--hairline);
+}
+
+/* ---------- Panels ---------- */
+
+.panel {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 1rem 1.15rem 0.9rem 1.15rem;
+}
+
+.panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.7rem;
+}
+
+.panel-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.panel-lang {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+}
+.panel-lang .native { color: var(--text-muted); font-weight: 400; margin-left: 0.35rem; }
+
+.metrics-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 0.55rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-faint);
+}
+.metrics-row b { color: var(--text-muted); font-weight: 600; }
+
+.output-body {
+    min-height: 168px;
+    border-radius: 6px;
+    background: var(--ink);
+    border: 1px solid var(--hairline);
+    padding: 0.85rem 0.95rem;
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.output-empty { color: var(--text-faint); font-style: italic; font-size: 0.88rem; }
+
+textarea, .stTextArea textarea {
+    background: var(--ink) !important;
+    color: var(--text) !important;
+    border-radius: 6px !important;
+    border: 1px solid var(--hairline) !important;
+    font-size: 1rem !important;
+}
+.stTextArea textarea:focus {
+    border-color: var(--emerald-strong) !important;
+    box-shadow: 0 0 0 1px var(--emerald-strong) !important;
+}
+
+.copy-btn {
+    background: transparent;
+    border: 1px solid var(--hairline-strong);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    padding: 0.32rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+}
+.copy-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ---------- Sidebar ---------- */
+
+[data-testid="stSidebar"] {
+    background: var(--surface-raised);
+    border-right: 1px solid var(--hairline);
+}
+[data-testid="stSidebar"] .block-container { padding-top: 1.6rem; }
+
+.side-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 0.7rem;
+}
+
+.spec-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.42rem 0;
+    border-bottom: 1px solid var(--hairline);
+    font-size: 0.82rem;
+}
+.spec-row:last-child { border-bottom: none; }
+.spec-row .k { color: var(--text-muted); }
+.spec-row .v { font-family: 'JetBrains Mono', monospace; color: var(--gold); font-size: 0.78rem; }
+
+.status-line {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.9rem;
+}
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emerald-strong); }
+.status-dot.cpu { background: var(--gold); }
+
+/* ---------- Footer ---------- */
+
+.footer-note {
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    margin-top: 2.4rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--hairline);
+}
+
+/* Streamlit chrome cleanup */
+[data-testid="stExpander"] {
+    border: 1px solid var(--hairline) !important;
+    border-radius: 8px !important;
+    background: var(--surface) !important;
+}
+#MainMenu, footer, header[data-testid="stHeader"] { background: transparent; }
 </style>
 """
 
@@ -365,22 +515,21 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 # 5. HEADER
 # ============================================================================
 
-st.markdown('<div class="flag-bar"></div>', unsafe_allow_html=True)
+st.markdown('<div class="top-rule"></div>', unsafe_allow_html=True)
 st.markdown(
     """
-    <div class="hero-card">
-        <p class="hero-title">የኢትዮጵያ ቋንቋዎች ትርጉም መድረክ</p>
-        <p class="hero-title" style="font-size:1.15rem; opacity:0.85;">Tajaajila Hiika Afaanii</p>
-        <p class="hero-subtitle">
-            A neural machine translation platform bridging Amharic and Afaan Oromo —
-            built on NLLB-200 with adapter-based fine-tuning for low-resource Ethiopian languages.
-        </p>
-        <div class="badge-row">
-            <span class="badge badge-emerald">NLLB-200 Distilled 600M</span>
-            <span class="badge badge-gold">LoRA Fine-Tuned</span>
-            <span class="badge badge-crimson">chrF 27.39</span>
-        </div>
+    <div class="masthead-row">
+        <span class="eyebrow">National Language Technology · Research Preview</span>
+        <span class="eyebrow-right">NLLB&#8209;200 + LoRA &nbsp;·&nbsp; chrF 27.39</span>
     </div>
+    <p class="masthead-title">የኢትዮጵያ ቋንቋዎች ትርጉም መድረክ</p>
+    <p class="masthead-subtitle">Tajaajila Hiika Afaanii</p>
+    <p class="masthead-desc">
+        A bidirectional neural machine translation system for Amharic and
+        Afaan Oromo, built on NLLB-200 and adapted with low-rank fine-tuning
+        for two of Ethiopia's most widely spoken, low-resource languages.
+    </p>
+    <div class="header-divider"></div>
     """,
     unsafe_allow_html=True,
 )
@@ -389,44 +538,55 @@ st.markdown(
 # 6. DIRECTION CONTROLS
 # ============================================================================
 
-ctrl_left, ctrl_mid, ctrl_right = st.columns([5, 1, 2])
+ctrl_left, ctrl_right = st.columns([3, 1])
 
 with ctrl_left:
     st.radio(
-        "Translation direction / Kallattii Hiikkaa",
+        "Translation direction",
         options=[DIR_AM_TO_OR, DIR_OR_TO_AM],
         key="direction",
         horizontal=True,
         label_visibility="collapsed",
     )
 
-with ctrl_mid:
-    st.markdown('<div class="swap-btn">', unsafe_allow_html=True)
-    st.button("⇄ Swap", on_click=swap_direction, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
 with ctrl_right:
-    st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
-    st.button("🧹 አጽዳ / Clear", on_click=clear_input, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    swap_col, clear_col = st.columns(2)
+    with swap_col:
+        st.button("⇄ Swap", on_click=swap_direction, use_container_width=True)
+    with clear_col:
+        st.button("Clear", on_click=clear_input, use_container_width=True)
 
 current_config = DIRECTIONS[st.session_state.direction]
 
-# Example chips
 st.markdown(
-    f'<span style="font-size:0.8rem; color:#9d9dc0;">Try an example / Fakkeenya:</span>',
+    f"""
+    <div class="seam">
+        <span class="code">{current_config['src']}</span>
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="code">{current_config['tgt']}</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    '<span style="font-family:JetBrains Mono, monospace; font-size:0.7rem; '
+    'letter-spacing:0.08em; text-transform:uppercase; color:#575F6E;">Examples</span>',
     unsafe_allow_html=True,
 )
 example_cols = st.columns(len(EXAMPLES[st.session_state.direction]))
 for i, example_text in enumerate(EXAMPLES[st.session_state.direction]):
     with example_cols[i]:
+        st.markdown('<div class="example-btn">', unsafe_allow_html=True)
+        label = example_text if len(example_text) <= 34 else example_text[:32] + "…"
         st.button(
-            example_text if len(example_text) <= 28 else example_text[:26] + "…",
+            label,
             key=f"example_{st.session_state.direction}_{i}",
             on_click=set_example,
             args=(st.session_state.direction, example_text),
             use_container_width=True,
         )
+        st.markdown("</div>", unsafe_allow_html=True)
 
 st.write("")
 
@@ -434,16 +594,28 @@ st.write("")
 # 7. TRANSLATION WORKSPACE
 # ============================================================================
 
-src_col, tgt_col = st.columns(2, gap="large")
+src_col, tgt_col = st.columns(2, gap="medium")
 
 with src_col:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown(f'<div class="card-label">{current_config["src_label"]}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="panel-head">
+            <div>
+                <div class="panel-label">Source</div>
+                <div class="panel-lang">{current_config['src_label']}
+                    <span class="native ethiopic">{current_config['src_native']}</span>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.text_area(
         "source_input",
         key="input_text",
-        height=180,
-        placeholder="ጽሑፍዎን እዚህ ይጻፉ... / Barreeffama kee asitti barreessi...",
+        height=170,
+        placeholder="Enter text to translate…",
         label_visibility="collapsed",
     )
     char_count = len(st.session_state.input_text)
@@ -451,8 +623,8 @@ with src_col:
     st.markdown(
         f"""
         <div class="metrics-row">
-            <span>ፊደላት / Characters: <b>{char_count}</b></span>
-            <span>ቃላት / Words: <b>{word_count}</b></span>
+            <span>Characters&nbsp;<b>{char_count}</b></span>
+            <span>Words&nbsp;<b>{word_count}</b></span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -461,24 +633,36 @@ with src_col:
 
     st.write("")
     st.button(
-        "🌐 ተርጉም / Hiiki (Translate)",
+        "Translate",
         on_click=do_translate,
         use_container_width=True,
         type="primary",
     )
 
 with tgt_col:
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown(f'<div class="card-label">{current_config["tgt_label"]}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="panel-head">
+            <div>
+                <div class="panel-label">Output</div>
+                <div class="panel-lang">{current_config['tgt_label']}
+                    <span class="native ethiopic">{current_config['tgt_native']}</span>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if st.session_state.last_error:
-        st.error(f"Translation failed: {st.session_state.last_error}")
+        st.error(f"Translation failed — {st.session_state.last_error}")
     elif st.session_state.output_text:
         safe_output = html_lib.escape(st.session_state.output_text)
-        st.markdown(f'<div class="output-box">{safe_output}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="output-body">{safe_output}</div>', unsafe_allow_html=True)
     else:
         st.markdown(
-            '<div class="output-box output-placeholder">ትርጉምዎ እዚህ ይታያል... / Hiikni kee asitti ni argama...</div>',
+            '<div class="output-body output-empty">Translation will appear here.</div>',
             unsafe_allow_html=True,
         )
 
@@ -486,35 +670,37 @@ with tgt_col:
         copy_payload = json.dumps(st.session_state.output_text)
         components.html(
             f"""
-            <button class="copy-btn" onclick="copyText()">📋 Copy to clipboard</button>
+            <button class="copy-btn" id="copyBtn" onclick="copyText()">COPY</button>
             <script>
             function copyText() {{
                 const text = {copy_payload};
                 navigator.clipboard.writeText(text).then(() => {{
-                    const btn = document.querySelector('.copy-btn');
+                    const btn = document.getElementById('copyBtn');
                     const original = btn.innerText;
-                    btn.innerText = '✅ Copied!';
-                    setTimeout(() => {{ btn.innerText = original; }}, 1500);
+                    btn.innerText = 'COPIED';
+                    setTimeout(() => {{ btn.innerText = original; }}, 1400);
                 }});
             }}
             </script>
             <style>
-                .copy-btn {{
-                    background: linear-gradient(135deg, rgba(7,137,48,0.9), rgba(252,221,9,0.35));
-                    border: 1px solid rgba(252,221,9,0.25);
-                    color: #fff;
-                    font-weight: 600;
-                    padding: 0.45rem 1rem;
-                    border-radius: 10px;
-                    cursor: pointer;
-                    font-size: 0.85rem;
-                    font-family: sans-serif;
-                }}
-                .copy-btn:hover {{ box-shadow: 0 0 12px rgba(252,221,9,0.35); }}
                 body {{ margin: 0; background: transparent; }}
+                .copy-btn {{
+                    background: transparent;
+                    border: 1px solid rgba(255,255,255,0.16);
+                    color: #8B93A3;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-weight: 500;
+                    padding: 0.32rem 0.7rem;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 0.7rem;
+                    letter-spacing: 0.05em;
+                    margin-top: 8px;
+                }}
+                .copy-btn:hover {{ border-color: #C8A44D; color: #C8A44D; }}
             </style>
             """,
-            height=50,
+            height=44,
         )
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -524,46 +710,53 @@ with tgt_col:
 # ============================================================================
 
 with st.sidebar:
-    st.markdown("### 🇪🇹 Project Overview")
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown('<div class="side-eyebrow">Model Card</div>', unsafe_allow_html=True)
     st.markdown(
         """
-        <div class="sidebar-metric"><span>Base Model</span><span>NLLB-200 (600M)</span></div>
-        <div class="sidebar-metric"><span>Fine-Tuning</span><span>LoRA (PEFT)</span></div>
-        <div class="sidebar-metric"><span>Dataset Size</span><span>5,000 pairs</span></div>
-        <div class="sidebar-metric"><span>Best chrF</span><span>27.39</span></div>
-        <div class="sidebar-metric"><span>Directions</span><span>AMH ⇄ ORM</span></div>
+        <div class="spec-row"><span class="k">Base model</span><span class="v">NLLB-200 · 600M</span></div>
+        <div class="spec-row"><span class="k">Fine-tuning</span><span class="v">LoRA (PEFT)</span></div>
+        <div class="spec-row"><span class="k">Dataset</span><span class="v">5,000 pairs</span></div>
+        <div class="spec-row"><span class="k">Best chrF</span><span class="v">27.39</span></div>
+        <div class="spec-row"><span class="k">Directions</span><span class="v">AMH ⇄ ORM</span></div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("📖 Why this matters / Bu'aa Hawaasaaf"):
+    device_is_cuda = torch.cuda.is_available()
+    st.markdown(
+        f"""
+        <div class="status-line">
+            <span class="status-dot {'cuda' if device_is_cuda else 'cpu'}"></span>
+            <span>{'GPU · CUDA' if device_is_cuda else 'CPU inference'}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.write("")
+
+    with st.expander("About this project"):
         st.markdown(
             """
             Amharic and Afaan Oromo are among Ethiopia's most widely spoken
             languages, yet remain low-resource in NLP research. This platform
-            was developed as part of a research internship to explore
-            adapter-based fine-tuning of multilingual translation models —
-            supporting cross-lingual communication and national language
-            integration at scale, without retraining the full base model.
+            explores adapter-based fine-tuning of a multilingual translation
+            model to support cross-lingual communication between the two
+            languages, without retraining the full base model.
             """
         )
 
-    with st.expander("⚙️ Technical Details"):
+    with st.expander("Technical specification"):
         st.markdown(
             f"""
             - **Base model:** `{BASE_MODEL}`
             - **Amharic → Oromo adapter:** `{LORA_AMH_TO_ORM}`
             - **Oromo → Amharic adapter:** `{LORA_ORM_TO_AMH}`
             - **Language codes:** `{AMH}`, `{ORM}`
-            - **Device:** Auto-detected (CUDA if available, else CPU)
-            - **Decoding:** Beam search (beams=4), max length 256
+            - **Device:** auto-detected (CUDA if available, else CPU)
+            - **Decoding:** beam search, beams = 4, max length 256
             """
         )
-
-    device_label = "🟢 GPU (CUDA)" if torch.cuda.is_available() else "🟡 CPU"
-    st.caption(f"Runtime device: {device_label}")
 
 # ============================================================================
 # 9. FOOTER
@@ -572,8 +765,7 @@ with st.sidebar:
 st.markdown(
     """
     <div class="footer-note">
-        የኢትዮጵያ ቋንቋዎች ትርጉም መድረክ · Tajaajila Hiika Afaanii<br>
-        Built on open multilingual research to support Ethiopia's linguistic diversity.
+        ETHIOPIAN NATIONAL LANGUAGE TECHNOLOGY INITIATIVE &nbsp;—&nbsp; RESEARCH PREVIEW
     </div>
     """,
     unsafe_allow_html=True,
